@@ -1,6 +1,7 @@
 // Document: an immutable original buffer (mmap'd file) + append-only add buffer,
 // indexed by an implicit treap of pieces. All edits go through replace().
 #pragma once
+#include <atomic>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -26,6 +27,14 @@ public:
     // Saves atomically (temp file + rename). If that is impossible it writes in place;
     // then historyInvalidated is set and old undo pieces must be discarded.
     bool save(const std::string &path, std::string &err, bool &historyInvalidated);
+
+    enum class SaveResult { Ok, Failed, Cancelled, NeedsInPlace };
+    // The atomic part of save(). Does not modify the document, so it may run in a worker
+    // thread. progress (bytes written) and cancel may be null.
+    SaveResult saveAtomic(const std::string &path, std::string &err, std::atomic<uint64_t> *progress,
+                          const std::atomic<bool> *cancel) const;
+    // Fallback when the directory is not writable. Modifies the document; main thread only.
+    bool saveInPlace(const std::string &path, std::string &err, bool &historyInvalidated);
 
     uint64_t size() const;
 

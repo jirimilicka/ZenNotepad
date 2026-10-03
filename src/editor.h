@@ -6,6 +6,8 @@
 #include <QFont>
 #include <QInputMethodEvent>
 #include <QTextLayout>
+#include <atomic>
+#include <functional>
 #include <memory>
 #include <unordered_map>
 #include <vector>
@@ -62,6 +64,14 @@ public:
     // Replaces the first match from the start (or the last from the end), then selects the
     // following (preceding) match, if any.
     bool replaceFirst(Searcher &s, const std::string &repl, bool fromEnd);
+
+    // Long operations (search, replace all, save) run in a worker thread while the event loop
+    // keeps going; input to the editor is ignored meanwhile. busyChanged reports progress
+    // (percent = -1 when finished). cancelBusy() aborts the running operation.
+    bool isBusy() const { return busy_; }
+    void cancelBusy() { cancel_ = true; }
+    bool wasCancelled() const { return lastCancelled_; }
+    void clearSelection();
     uint64_t replaceAll(Searcher &s, const std::string &repl);
 
 signals:
@@ -69,6 +79,7 @@ signals:
     void fileDropped(const QString &path);
     void zoomChanged(int percent);
     void contextMenuAboutToShow(QMenu *menu);
+    void busyChanged(const QString &what, int percent);
 
 protected:
     void paintEvent(QPaintEvent *) override;
@@ -91,6 +102,7 @@ protected:
     bool focusNextPrevChild(bool) override { return false; }
     void scrollContentsBy(int, int) override {}
     bool event(QEvent *) override;
+    bool viewportEvent(QEvent *) override;
 
 private:
     struct Anchor {
@@ -137,6 +149,8 @@ private:
     // cursor movement
     void setCursor(uint64_t pos, bool keepAnchor);
     void selectMatch(uint64_t ms, uint64_t me);
+    bool runBusy(const QString &what, const std::function<void()> &work);
+    static bool isInputEvent(QEvent::Type t);
     uint64_t normalize(uint64_t pos) const;
     uint64_t moveVisual(uint64_t pos, bool right);
     uint64_t moveWord(uint64_t pos, bool forward);
@@ -189,7 +203,12 @@ private:
     bool inverted_ = false;
     int dirMode_ = 0;
     int xOff_ = 0;  // horizontal scroll in no-wrap mode
-    int hRange_ = 0;  // horizontal scroll range; only grows while scrolling (see updateHScroll)
+    int hRange_ = 0;
+    bool busy_ = false;
+    bool lastCancelled_ = false;
+    std::atomic<bool> cancel_{false};
+    std::atomic<uint64_t> progress_{0};
+    uint64_t progressTotal_ = 1;  // horizontal scroll range; only grows while scrolling (see updateHScroll)
     bool rtl_ = false;
     bool trackDir_ = true;
     int64_t strongL_ = 0, strongR_ = 0;

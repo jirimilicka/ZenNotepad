@@ -3,6 +3,7 @@
 #include <QApplication>
 #include <QTest>
 #include <QScrollBar>
+#include <QTimer>
 #include <QFile>
 #include <QTemporaryDir>
 #include <random>
@@ -46,6 +47,22 @@ struct EditorTest {
         }
     }
     }
+    static void busyShot(const QString &file, const QString &out)
+    {
+        QApplication::setStyle(QStringLiteral("breeze"));
+        MainWindow w;
+        w.resize(860, 400);
+        w.openPath(file);
+        w.show();
+        w.find_->setText(QStringLiteral("dolor"));
+        w.showBar(true);
+        w.repl_->setText(QStringLiteral("DOLOR"));
+        QTimer::singleShot(900, [&] { w.grab().save(out); fprintf(stderr, "title: %s\n", qPrintable(w.windowTitle())); });
+        QTimer::singleShot(100, [&] { w.replaceAll(); });
+        QTimer::singleShot(4000, [&] { qApp->quit(); });
+        qApp->exec();
+        fprintf(stderr, "after: %s | %s\n", qPrintable(w.status_->text()), qPrintable(w.windowTitle()));
+    }
     static void blocks(Editor &e, std::mt19937 &rng)
     {
         uint64_t size = e.doc_.size(), s = 0, n = 0;
@@ -76,6 +93,7 @@ static std::string all(const Editor &e) { return e.document().text(0, e.document
 int main(int argc, char **argv)
 {
     QApplication app(argc, argv);
+    if (argc > 3) { EditorTest::busyShot(QString::fromLocal8Bit(argv[1]), QString::fromLocal8Bit(argv[2])); return 0; }
     if (argc > 2) { EditorTest::shot(QString::fromLocal8Bit(argv[1]), QString::fromLocal8Bit(argv[2])); return 0; }
     std::mt19937 rng(42);
     QTemporaryDir dir;

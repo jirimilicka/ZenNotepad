@@ -1,6 +1,7 @@
 #pragma once
 #include "document.h"
 
+#include <atomic>
 #include <functional>
 #include <string>
 
@@ -16,6 +17,12 @@ public:
 
     bool setPattern(const std::string &pat, bool matchCase, bool regex, std::string &err);
     bool valid() const { return ok_; }
+    // Optional progress (bytes scanned) and cancel flag, for running in a worker thread.
+    void setControl(std::atomic<uint64_t> *progress, const std::atomic<bool> *cancel)
+    {
+        progress_ = progress;
+        cancel_ = cancel;
+    }
 
     // First match starting at >= from. Empty matches allowed for regex.
     bool findForward(uint64_t from, uint64_t &ms, uint64_t &me);
@@ -43,4 +50,12 @@ private:
     pcre2_code_8 *code_ = nullptr;
     pcre2_match_data_8 *md_ = nullptr;
     std::string scratch_;
+    std::atomic<uint64_t> *progress_ = nullptr;
+    const std::atomic<bool> *cancel_ = nullptr;
+    bool tick(uint64_t done)  // returns false when cancelled
+    {
+        if (progress_)
+            progress_->store(done);
+        return !(cancel_ && cancel_->load());
+    }
 };

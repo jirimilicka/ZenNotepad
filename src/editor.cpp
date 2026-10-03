@@ -4,6 +4,10 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QDateTime>
+#include <QElapsedTimer>
+#include <QEventLoop>
+#include <QTimer>
+#include <thread>
 #include <QFileInfo>
 #include <QInputMethod>
 #include <QKeyEvent>
@@ -172,9 +176,20 @@ bool Editor::saveFile(const QString &path, QString &err)
 {
     std::string e;
     bool inval = false;
-    QGuiApplication::setOverrideCursor(Qt::WaitCursor);
-    bool ok = doc_.save(QFile::encodeName(path).toStdString(), e, inval);
-    QGuiApplication::restoreOverrideCursor();
+    const std::string p = QFile::encodeName(path).toStdString();
+    Document::SaveResult r = Document::SaveResult::Failed;
+    progressTotal_ = qMax<uint64_t>(1, doc_.size());
+    runBusy(tr("Saving…"), [&] { r = doc_.saveAtomic(p, e, &progress_, &cancel_); });
+    bool ok = r == Document::SaveResult::Ok;
+    if (r == Document::SaveResult::Cancelled) {
+        err = tr("Cancelled");
+        return false;
+    }
+    if (r == Document::SaveResult::NeedsInPlace) {
+        QGuiApplication::setOverrideCursor(Qt::WaitCursor);
+        ok = doc_.saveInPlace(p, e, inval);
+        QGuiApplication::restoreOverrideCursor();
+    }
     if (inval) {
         undo_.clear();
         redo_.clear();
@@ -1161,32 +1176,33 @@ void Editor::deleteForward(bool word)
 
 bool Editor::find(Searcher &s, bool backward, bool &wrapped)
 {
+    s.setControl(&progress_, &cancel_);
     wrapped = false;
-    uint64_t ms, me;
-    bool slow = doc_.size() > (64u << 20);
-    if (slow)
-        QGuiApplication::setOverrideCursor(Qt::WaitCursor);
-    bool ok;
-    if (!backward) {
-        uint64_t from = selEnd();
-        ok = s.findForward(from, ms, me);
-        if (ok && me == ms && ms == from && !hasSelection()) {  // don't get stuck on an empty match
-            uint64_t n = nextGrapheme(from);
-            ok = n > from && s.findForward(n, ms, me);
-        }
-        if (!ok) {
-            ok = s.findForward(0, ms, me);
-            wrapped = ok;
-        }
-    } else {
-        ok = s.findBackward(selStart(), ms, me);
-        if (!ok) {
-            ok = s.findBackward(doc_.size() + 1, ms, me);
-            wrapped = ok;
-        }
-    }
-    if (slow)
-        QGuiApplication::restoreOverrideCursor();
+    uint64_t ms = 0, me = 0;
+    bool ok = false;
+    const uint64_t from = selEnd(), before = selStart(), size = doc_.size();
+    const bool emptySel = !hasSelection();
+    const uint64_t afterFrom = nextGrapheme(from);  // computed here: layout code is main-thread only
+    bool w = false;
+    if (!runBusy(tr("Searching…"), [&] {
+            if (!backward) {
+                ok = s.findForward(from, ms, me);
+                if (ok && me == ms && ms == from && emptySel)  // don't get stuck on an empty match
+                    ok = afterFrom > from && s.findForward(afterFrom, ms, me);
+                if (!ok && !cancel_) {
+                    ok = s.findForward(0, ms, me);
+                    w = ok;
+                }
+            } else {
+                ok = s.findBackward(before, ms, me);
+                if (!ok && !cancel_) {
+                    ok = s.findBackward(size + 1, ms, me);
+                    w = ok;
+                }
+            }
+        }))
+        return false;
+    wrapped = w;
     if (!ok)
         return false;
     selectMatch(ms, me);
@@ -1205,13 +1221,14 @@ void Editor::selectMatch(uint64_t ms, uint64_t me)
 
 bool Editor::findFirst(Searcher &s, bool fromEnd)
 {
-    uint64_t ms, me;
-    bool slow = doc_.size() > (64u << 20);
-    if (slow)
-        QGuiApplication::setOverrideCursor(Qt::WaitCursor);
-    bool ok = fromEnd ? s.findBackward(doc_.size() + 1, ms, me) : s.findForward(0, ms, me);
-    if (slow)
-        QGuiApplication::restoreOverrideCursor();
+    s.setControl(&progress_, &cancel_);
+    uint64_t ms = 0, me = 0;
+    bool ok = false;
+    const uint64_t size = doc_.size();
+    if (!runBusy(tr("Searching…"), [&] {
+            ok = fromEnd ? s.findBackward(size + 1, ms, me) : s.findForward(0, ms, me);
+        }))
+        return false;
     if (ok)
         selectMatch(ms, me);
     return ok;
@@ -1219,6 +1236,7 @@ bool Editor::findFirst(Searcher &s, bool fromEnd)
 
 bool Editor::replaceFirst(Searcher &s, const std::string &repl, bool fromEnd)
 {
+    s.setControl(&progress_, &cancel_);
     if (!findFirst(s, fromEnd))
         return false;
     uint64_t ms = selStart(), me = selEnd();
@@ -1226,9 +1244,14 @@ bool Editor::replaceFirst(Searcher &s, const std::string &repl, bool fromEnd)
     if (!s.matchesExactly(ms, me, repl, out))
         out = repl;
     replaceRange(ms, me, out, Kind::Other);
-    uint64_t a, b;
-    if (fromEnd ? s.findBackward(ms, a, b) : s.findForward(ms + out.size(), a, b))
+    uint64_t a = 0, b = 0;
+    bool found = false;
+    runBusy(tr("Searching…"), [&] {
+        found = fromEnd ? s.findBackward(ms, a, b) : s.findForward(ms + out.size(), a, b);
+    });
+    if (found)
         selectMatch(a, b);
+    lastCancelled_ = false;  // the replacement itself happened
     return true;
 }
 
@@ -1243,7 +1266,7 @@ bool Editor::replaceOne(Searcher &s, const std::string &repl, bool &wrapped)
 
 uint64_t Editor::replaceAll(Searcher &s, const std::string &repl)
 {
-    QGuiApplication::setOverrideCursor(Qt::WaitCursor);
+    s.setControl(&progress_, &cancel_);
     const uint32_t kAcc = 0xFFFFFFFFu;  // pieces pointing into acc, fixed up later
     std::vector<Piece> all = doc_.allPieces();
     size_t pi = 0;
@@ -1286,17 +1309,21 @@ uint64_t Editor::replaceAll(Searcher &s, const std::string &repl)
             }
         }
     };
-    s.forEachMatch(repl, [&](uint64_t ms, uint64_t me, std::string_view r) {
-        copyRange(prev, ms);
-        pushAcc(r.data(), r.size());
-        prev = me;
-        ++count;
-    });
-    if (count == 0) {
-        QGuiApplication::restoreOverrideCursor();
+    const uint64_t size = doc_.size();
+    if (!runBusy(tr("Replacing…"), [&] {
+            s.forEachMatch(repl, [&](uint64_t ms, uint64_t me, std::string_view r) {
+                copyRange(prev, ms);
+                pushAcc(r.data(), r.size());
+                prev = me;
+                ++count;
+            });
+            if (count && !cancel_)
+                copyRange(prev, size);
+        }))
         return 0;
-    }
-    copyRange(prev, doc_.size());
+    if (count == 0)
+        return 0;
+    QGuiApplication::setOverrideCursor(Qt::WaitCursor);
     Piece base = doc_.addOwned(std::move(acc));
     std::vector<Piece> fixed;
     fixed.reserve(np.size());
@@ -1320,9 +1347,87 @@ uint64_t Editor::replaceAll(Searcher &s, const std::string &repl)
 
 // ---------------------------------------------------------------- input
 
+bool Editor::runBusy(const QString &what, const std::function<void()> &work)
+{
+    cancel_ = false;
+    progress_ = 0;
+    if (progressTotal_ <= 1)
+        progressTotal_ = qMax<uint64_t>(1, doc_.size());
+    busy_ = true;
+    QEventLoop loop;
+    std::thread worker([&] {
+        work();
+        QMetaObject::invokeMethod(&loop, [&loop] { loop.quit(); }, Qt::QueuedConnection);
+    });
+    // Progress is only shown for operations that take a noticeable time.
+    QElapsedTimer elapsed;
+    elapsed.start();
+    bool shown = false;
+    QTimer timer;
+    QObject::connect(&timer, &QTimer::timeout, &loop, [&] {
+        if (elapsed.elapsed() < 300)
+            return;
+        if (!shown) {
+            QGuiApplication::setOverrideCursor(Qt::BusyCursor);
+            shown = true;
+        }
+        emit busyChanged(what, int(qMin<uint64_t>(100, progress_.load() * 100 / progressTotal_)));
+    });
+    timer.start(100);
+    loop.exec();
+    worker.join();
+    timer.stop();
+    if (shown)
+        QGuiApplication::restoreOverrideCursor();
+    busy_ = false;
+    progressTotal_ = 1;
+    lastCancelled_ = cancel_;
+    emit busyChanged(QString(), -1);
+    return !lastCancelled_;
+}
+
+void Editor::clearSelection()
+{
+    if (hasSelection())
+        setCursor(cursor_, false);
+}
+
+bool Editor::isInputEvent(QEvent::Type t)
+{
+    switch (t) {
+    case QEvent::KeyPress:
+    case QEvent::KeyRelease:
+    case QEvent::InputMethod:
+    case QEvent::MouseButtonPress:
+    case QEvent::MouseButtonRelease:
+    case QEvent::MouseButtonDblClick:
+    case QEvent::MouseMove:
+    case QEvent::ContextMenu:
+    case QEvent::DragEnter:
+    case QEvent::DragMove:
+    case QEvent::Drop:
+        return true;
+    default:
+        return false;
+    }
+}
+
 bool Editor::event(QEvent *e)
 {
+    if (busy_ && isInputEvent(e->type())) {
+        e->accept();
+        return true;
+    }
     return QAbstractScrollArea::event(e);
+}
+
+bool Editor::viewportEvent(QEvent *e)
+{
+    if (busy_ && isInputEvent(e->type())) {
+        e->accept();
+        return true;
+    }
+    return QAbstractScrollArea::viewportEvent(e);
 }
 
 void Editor::keyPressEvent(QKeyEvent *e)

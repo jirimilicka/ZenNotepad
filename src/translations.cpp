@@ -51,6 +51,11 @@ const TrEntry kCzech[] = {
     {"Enter: replace the first match from the beginning\nShift+Enter: replace the last match from the end\nCtrl+Alt+Enter: replace all",
      "Enter: nahradit první výskyt od začátku\nShift+Enter: nahradit poslední výskyt od konce\nCtrl+Alt+Enter: nahradit vše"},
     {"Replace the selected match and go to the next one", "Nahradit označený výskyt a přejít na další"},
+    {"Saving…", "Ukládám…"},
+    {"Searching…", "Hledám…"},
+    {"Replacing…", "Nahrazuji…"},
+    {"Cancelled", "Zrušeno"},
+    {"%1 %2 % (Esc cancels)", "%1 %2 % (Esc přeruší)"},
     {nullptr, nullptr},
 };
 } // namespace

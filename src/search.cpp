@@ -158,6 +158,8 @@ bool Searcher::findForward(uint64_t from, uint64_t &ms, uint64_t &me)
     const uint64_t size = d_.size();
     uint64_t lo = from;
     while (lo <= size) {
+        if (!tick(lo))
+            return false;
         uint64_t a, e, hi;
         bool nb, ne;
         chunkForward(lo, a, e, hi, nb, ne);
@@ -180,6 +182,8 @@ bool Searcher::findBackward(uint64_t before, uint64_t &ms, uint64_t &me)
         before = size + 1;
     uint64_t hi = before;
     while (hi > 0) {
+        if (!tick(size - std::min(hi, size)))
+            return false;
         uint64_t a0 = hi > kChunk ? hi - kChunk : 0;
         uint64_t a, lo;
         if (a0 == 0) {
@@ -273,6 +277,8 @@ void Searcher::forEachMatch(const std::string &repl,
     uint64_t lo = 0;
     std::string r;
     while (lo <= size) {
+        if (!tick(lo))
+            return;
         uint64_t a, e, hi;
         bool nb, ne;
         chunkForward(lo, a, e, hi, nb, ne);

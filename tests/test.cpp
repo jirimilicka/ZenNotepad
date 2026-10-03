@@ -6,6 +6,7 @@
 #include <QTemporaryDir>
 #include <QFile>
 #include <QElapsedTimer>
+#include <QTimer>
 #include <cstdio>
 
 static int fails = 0;
@@ -203,6 +204,24 @@ int main(int argc, char **argv)
         CHECK(cnt == 18000000);
         fprintf(stderr, "caseless count 1GB: %lld ms\n", (long long)t.elapsed());
         t.restart();
+        // event loop keeps running during long operations, and Esc-style cancel leaves the document unchanged
+        {
+            se.setPattern("dolor", true, false, er);
+            int ticks = 0;
+            QTimer tick;
+            QObject::connect(&tick, &QTimer::timeout, [&] { ++ticks; });
+            tick.start(20);
+            qint64 cancelAt = 0; QElapsedTimer ct0; ct0.start(); QTimer::singleShot(400, [&] { cancelAt = ct0.elapsed(); e.cancelBusy(); });
+            uint64_t before = e.document().size();
+            QElapsedTimer ct; ct.start();
+            CHECK(e.replaceAll(se, "DOLOR") == 0);
+            CHECK(e.wasCancelled());
+            CHECK(e.document().size() == before && e.document().text(0, 18) == "Lorem ipsum dolor ");
+            CHECK(!e.isBusy());
+            fprintf(stderr, "cancel requested at %lld ms, replaceAll returned after %lld ms, event loop ticks: %d\n", (long long)cancelAt, (long long)ct.elapsed(), ticks);
+            CHECK(ticks >= 5);
+            t.restart();
+        }
         se.setPattern("dolor", true, false, er);
         CHECK(e.replaceAll(se, "DOLOR") == 18000000);
         fprintf(stderr, "replace all 18M: %lld ms, pieces=%llu\n", (long long)t.elapsed(),

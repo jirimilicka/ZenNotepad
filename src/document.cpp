@@ -81,6 +81,16 @@ static bool writeAll(int fd, const char *p, uint64_t n)
 bool Document::save(const std::string &path, std::string &err, bool &historyInvalidated)
 {
     historyInvalidated = false;
+    switch (saveAtomic(path, err, nullptr, nullptr)) {
+    case SaveResult::Ok: return true;
+    case SaveResult::NeedsInPlace: return saveInPlace(path, err, historyInvalidated);
+    default: return false;
+    }
+}
+
+Document::SaveResult Document::saveAtomic(const std::string &path, std::string &err,
+                                          std::atomic<uint64_t> *progress, const std::atomic<bool> *cancel) const
+{
     std::vector<Piece> ps = allPieces();
 
     struct stat st;
@@ -91,34 +101,55 @@ bool Document::save(const std::string &path, std::string &err, bool &historyInva
     std::vector<char> tbuf(tmp.begin(), tmp.end());
     tbuf.push_back(0);
     int fd = mkstemp(tbuf.data());
-    if (fd >= 0) {
-        bool ok = true;
-        for (const Piece &p : ps)
-            if (!(ok = writeAll(fd, bufData(p.buf) + p.off, p.len)))
+    if (fd < 0)
+        return SaveResult::NeedsInPlace;
+    bool ok = true, cancelled = false;
+    uint64_t written = 0;
+    const uint64_t kStep = 64u << 20;  // write in steps to report progress and allow cancelling
+    for (const Piece &p : ps) {
+        for (uint64_t o = 0; ok && o < p.len; o += kStep) {
+            if (cancel && cancel->load()) {
+                cancelled = true;
                 break;
-        if (ok && exists)
+            }
+            uint64_t n = std::min(kStep, p.len - o);
+            ok = writeAll(fd, bufData(p.buf) + p.off + o, n);
+            written += n;
+            if (progress)
+                progress->store(written);
+        }
+        if (!ok || cancelled)
+            break;
+    }
+    if (ok && !cancelled) {
+        if (exists) {
             fchmod(fd, mode);
-        else if (ok) {
+        } else {
             mode_t um = umask(0);
             umask(um);
             fchmod(fd, 0666 & ~um);
         }
-        if (ok)
-            ok = fdatasync(fd) == 0;
-        int e = ok ? 0 : errno;
-        ::close(fd);
-        if (ok) {
-            if (::rename(tbuf.data(), path.c_str()) == 0)
-                return true;
-            e = errno;
-        }
-        err = strerror(e);
-        ::unlink(tbuf.data());
-        return false;
+        ok = fdatasync(fd) == 0;
     }
+    int e = ok ? 0 : errno;
+    ::close(fd);
+    if (ok && !cancelled) {
+        if (::rename(tbuf.data(), path.c_str()) == 0)
+            return SaveResult::Ok;
+        e = errno;
+    }
+    ::unlink(tbuf.data());
+    if (cancelled)
+        return SaveResult::Cancelled;
+    err = strerror(e);
+    return SaveResult::Failed;
+}
 
-    // Directory not writable: write in place. The mapped original may be this very
-    // file, so first move all content into memory.
+bool Document::saveInPlace(const std::string &path, std::string &err, bool &historyInvalidated)
+{
+    historyInvalidated = false;
+    std::vector<Piece> ps = allPieces();
+    // The mapped original may be this very file, so first move all content into memory.
     bool usesMap = false;
     for (const Piece &p : ps)
         usesMap |= p.buf == 0;
@@ -142,7 +173,7 @@ bool Document::save(const std::string &path, std::string &err, bool &historyInva
         historyInvalidated = true;
         ps = allPieces();
     }
-    fd = ::open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0666);
+    int fd = ::open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, 0666);
     if (fd < 0) {
         err = strerror(errno);
         return false;

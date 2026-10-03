@@ -20,6 +20,7 @@
 #include <QPushButton>
 #include <QSettings>
 #include <QShortcut>
+#include <QTimer>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -106,15 +107,38 @@ public:
         connect(editor_, &Editor::contextMenuAboutToShow, this, &MainWindow::extendContextMenu);
         connect(editor_, &Editor::modifiedChanged, this, [this](bool) { updateTitle(); });
         connect(editor_, &Editor::fileDropped, this, [this](const QString &p) {
-            if (maybeSave())
+            if (!editor_->isBusy() && maybeSave())
                 openPath(p);
         });
 
         auto sc = [this](const QKeySequence &k, auto fn) {
             auto *s = new QShortcut(k, this);
             s->setContext(Qt::WindowShortcut);
-            connect(s, &QShortcut::activated, this, fn);
+            connect(s, &QShortcut::activated, this, [this, fn] {
+                if (!editor_->isBusy())  // the document must not change while a worker reads it
+                    fn();
+            });
         };
+        // Esc: cancel a long operation, else close the find bar, else drop the selection.
+        auto *esc = new QShortcut(QKeySequence(Qt::Key_Escape), this);
+        connect(esc, &QShortcut::activated, this, [this] {
+            if (editor_->isBusy())
+                editor_->cancelBusy();
+            else if (bar_->isVisible())
+                hideBar();
+            else
+                editor_->clearSelection();
+        });
+        connect(editor_, &Editor::busyChanged, this, [this](const QString &what, int percent) {
+            if (percent < 0 && !busyText_.isEmpty() && status_->text() == busyText_)
+                status_->clear();
+            busyText_ = percent < 0 ? QString() : tr("%1 %2 % (Esc cancels)").arg(what).arg(percent);
+            if (percent >= 0)
+                status_->setText(busyText_);
+            updateTitle();
+            if (percent < 0 && closePending_)
+                QTimer::singleShot(0, this, &QWidget::close);
+        });
         sc(QKeySequence::Save, [this] { save(false); });
         sc(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_S), [this] { save(true); });
         sc(QKeySequence::Open, [this] {
@@ -169,6 +193,13 @@ public:
 protected:
     void closeEvent(QCloseEvent *e) override
     {
+        if (editor_->isBusy()) {  // finish (cancel) the running operation first
+            closePending_ = true;
+            editor_->cancelBusy();
+            e->ignore();
+            return;
+        }
+        closePending_ = false;
         if (!maybeSave()) {
             e->ignore();
             return;
@@ -205,7 +236,8 @@ private:
     void updateTitle()
     {
         QString name = path_.isEmpty() ? tr("Untitled") : QFileInfo(path_).fileName();
-        setWindowTitle((editor_->isModified() ? QStringLiteral("*") : QString()) + name + QStringLiteral(" – Zen Notepad"));
+        setWindowTitle((busyText_.isEmpty() ? QString() : QStringLiteral("[") + busyText_ + QStringLiteral("] ")) +
+                       (editor_->isModified() ? QStringLiteral("*") : QString()) + name + QStringLiteral(" – Zen Notepad"));
     }
 
     bool save(bool as)
@@ -218,6 +250,8 @@ private:
         }
         QString err;
         if (!editor_->saveFile(p, err)) {
+            if (editor_->wasCancelled())
+                return false;
             QMessageBox::warning(this, QStringLiteral("Zen Notepad"), tr("Cannot save “%1”:\n%2").arg(p, err));
             return false;
         }
@@ -319,12 +353,9 @@ private:
         connect(case_, &QToolButton::toggled, this, [this] { setStatus(QString(), false); });
         connect(regex_, &QToolButton::toggled, this, [this] { setStatus(QString(), false); });
 
-        auto *esc = new QShortcut(QKeySequence(Qt::Key_Escape), bar_);
-        esc->setContext(Qt::WidgetWithChildrenShortcut);
-        connect(esc, &QShortcut::activated, this, &MainWindow::hideBar);
         auto *all2 = new QShortcut(QKeySequence(Qt::CTRL | Qt::ALT | Qt::Key_Return), this);
         connect(all2, &QShortcut::activated, this, [this] {
-            if (bar_->isVisible() && repl_->isVisible())
+            if (!editor_->isBusy() && bar_->isVisible() && repl_->isVisible())
                 replaceAll();
         });
     }
@@ -431,6 +462,8 @@ private:
 
     bool prepare(Searcher &s)
     {
+        if (editor_->isBusy())
+            return false;
         if (find_->text().isEmpty()) {
             if (!bar_->isVisible())
                 showBar(false);
@@ -453,7 +486,7 @@ private:
         if (editor_->find(s, backward, wrapped))
             setStatus(wrapped ? (backward ? tr("Wrapped around to the end") : tr("Wrapped around to the beginning")) : QString(), false);
         else
-            setStatus(tr("Not found"), true);
+            setStatus(editor_->wasCancelled() ? tr("Cancelled") : tr("Not found"), !editor_->wasCancelled());
     }
 
     void findFirst(bool fromEnd)
@@ -464,7 +497,7 @@ private:
         if (editor_->findFirst(s, fromEnd))
             setStatus(QString(), false);
         else
-            setStatus(tr("Not found"), true);
+            setStatus(editor_->wasCancelled() ? tr("Cancelled") : tr("Not found"), !editor_->wasCancelled());
     }
 
     void replaceFirst(bool fromEnd)
@@ -475,7 +508,7 @@ private:
         if (editor_->replaceFirst(s, repl_->text().toUtf8().toStdString(), fromEnd))
             setStatus(QString(), false);
         else
-            setStatus(tr("Not found"), true);
+            setStatus(editor_->wasCancelled() ? tr("Cancelled") : tr("Not found"), !editor_->wasCancelled());
     }
 
     void replaceOne()
@@ -487,7 +520,7 @@ private:
         if (editor_->replaceOne(s, repl_->text().toUtf8().toStdString(), wrapped))
             setStatus(wrapped ? tr("Wrapped around to the beginning") : QString(), false);
         else
-            setStatus(tr("Not found"), true);
+            setStatus(editor_->wasCancelled() ? tr("Cancelled") : tr("Not found"), !editor_->wasCancelled());
     }
 
     void replaceAll()
@@ -499,7 +532,7 @@ private:
         if (n)
             setStatus(tr("Replaced: %1").arg(n), false);
         else
-            setStatus(tr("Not found"), true);
+            setStatus(editor_->wasCancelled() ? tr("Cancelled") : tr("Not found"), !editor_->wasCancelled());
     }
 
     Editor *editor_;
@@ -507,6 +540,8 @@ private:
     QLineEdit *find_, *repl_;
     QToolButton *case_, *regex_;
     QLabel *status_;
+    QString busyText_;
+    bool closePending_ = false;
     QToolButton *first_, *next_, *prev_, *last_, *close_, *one_, *all_;
     bool badStatus_ = false;
     QList<QWidget *> replWidgets_;

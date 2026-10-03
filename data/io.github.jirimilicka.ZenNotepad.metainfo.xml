@@ -73,6 +73,12 @@
     <color type="primary" scheme_preference="dark">#262626</color>
   </branding>
   <releases>
+    <release version="1.0.4" date="2026-10-04">
+      <description>
+        <p>Long searches, replacements and saves run in the background: the window stays responsive, shows progress in the find bar and the title, and Esc cancels (a cancelled Replace All or save changes nothing).</p>
+        <p>The clear buttons in the find bar scale with the zoom.</p>
+      </description>
+    </release>
     <release version="1.0.3" date="2026-10-04">
       <description>
         <p>Find: Enter jumps to the first match from the beginning, Shift+Enter to the last match from the end; F3 / Shift+F3 go to the next / previous match. In the replace field, Enter / Shift+Enter replace the first / last match.</p>
