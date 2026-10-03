@@ -63,7 +63,7 @@ Tests (`zen_test`, `zen_fuzz`) are built when Qt Test is available:
 QT_QPA_PLATFORM=offscreen build/zen_test && QT_QPA_PLATFORM=offscreen build/zen_fuzz
 ```
 
-Flatpak: `flatpak run org.flatpak.Builder --user --install --force-clean build-flatpak io.github.jirimilicka.ZenNotepad.yml`
+Flatpak: `flatpak run org.flatpak.Builder --user --install --force-clean build-flatpak io.github.jirimilicka.zen_notepad.yml`
 
 ## How it is fast
 

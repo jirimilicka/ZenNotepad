@@ -15,7 +15,7 @@ int main(int argc, char **argv)
     QCoreApplication::setOrganizationName(QStringLiteral("zen-notepad"));
     QCoreApplication::setApplicationName(QStringLiteral("zen-notepad"));
     setUiLanguage(QSettings().value("language", QStringLiteral("auto")).toString());
-    QGuiApplication::setDesktopFileName(QStringLiteral("io.github.jirimilicka.ZenNotepad"));
+    QGuiApplication::setDesktopFileName(QStringLiteral("io.github.jirimilicka.zen_notepad"));
     MainWindow w;
     QStringList args = app.arguments();
     if (args.size() > 1)

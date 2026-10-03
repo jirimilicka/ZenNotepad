@@ -7,4 +7,4 @@ cmake --build build -j"$(nproc)" --target zen-notepad
 cmake --install build >/dev/null
 update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
 echo "Installed: $HOME/.local/bin/zen-notepad"
-echo "To make it the default for text files:  xdg-mime default io.github.jirimilicka.ZenNotepad.desktop text/plain"
+echo "To make it the default for text files:  xdg-mime default io.github.jirimilicka.zen_notepad.desktop text/plain"

@@ -17,7 +17,7 @@ target_link_libraries(zen-notepad PRIVATE Qt6::Widgets Qt6::DBus PkgConfig::PCRE
 target_link_options(zen-notepad PRIVATE -Wl,-O1 -Wl,--as-needed)
 
 include(GNUInstallDirs)
-set(APP_ID io.github.jirimilicka.ZenNotepad)
+set(APP_ID io.github.jirimilicka.zen_notepad)
 install(TARGETS zen-notepad RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES data/${APP_ID}.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
 install(FILES data/${APP_ID}.metainfo.xml DESTINATION ${CMAKE_INSTALL_DATADIR}/metainfo)
