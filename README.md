@@ -6,6 +6,21 @@ one window per document. It starts instantly and never second-guesses what you t
 
 ![Zen Notepad](screenshots/main.png)
 
+## Installation
+
+**Flatpak (any distribution, also from KDE Discover):** download `ZenNotepad-<version>.flatpak` from the
+[latest release](https://github.com/jirimilicka/ZenNotepad/releases/latest) and open it — Discover or
+GNOME Software installs it with one click. From a terminal:
+
+```sh
+flatpak install --user ZenNotepad-1.0.2.flatpak
+```
+
+The KDE runtime it needs is downloaded from Flathub automatically. The app has full file system access
+(it is a text editor: it must open and save files anywhere, and memory-maps huge files directly).
+
+**From source:** see [Building](#building).
+
 ## Features
 
 - **Instant start** (≈50 ms to the first frame on a typical desktop), always with an empty document
@@ -74,6 +89,13 @@ Flatpak: `flatpak run org.flatpak.Builder --user --install --force-clean build-f
 - Search runs directly on the UTF-8 bytes in newline-aligned chunks (`memmem` or PCRE2 JIT).
 - The KDE platform theme plugin is skipped at startup (it costs ~100 ms); the Breeze style is
   used directly and file dialogs go through xdg-desktop-portal, so they are still native.
+
+## Authorship
+
+Zen Notepad was created by **Claude Opus 5.5** (Anthropic's AI model): all of the code, the choice of
+algorithms and data structures, the architecture, the tests and the packaging. Jiří Milička came up with
+the idea, specified the requirements, made the design decisions, tested it in real use and maintains
+the project.
 
 ## License
 
