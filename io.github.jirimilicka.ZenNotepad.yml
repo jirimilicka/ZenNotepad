@@ -1,0 +1,26 @@
+# Flatpak manifest (also the one to submit to Flathub).
+# Local test build:  flatpak run org.flatpak.Builder --user --install --force-clean build-flatpak io.github.jirimilicka.ZenNotepad.yml
+id: io.github.jirimilicka.ZenNotepad
+runtime: org.kde.Platform
+runtime-version: '6.11'
+sdk: org.kde.Sdk
+command: zen-notepad
+finish-args:
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  # A text editor has to open and save files anywhere; direct access also keeps
+  # memory-mapping of huge files fast (no FUSE document portal in between).
+  - --filesystem=host
+modules:
+  - name: zen-notepad
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DBUILD_TESTING=OFF
+    sources:
+      - type: git
+        url: https://github.com/jirimilicka/zen-notepad.git
+        tag: v1.0.0
+        # commit: <fill in the commit hash of the tag before submitting to Flathub>

@@ -1,0 +1,4 @@
+build/
+build-*/
+.flatpak-builder/
+repo/

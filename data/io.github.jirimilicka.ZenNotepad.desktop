@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=Zen Notepad
+GenericName=Text Editor
+GenericName[cs]=Textový editor
+Comment=Simple, fast UTF-8 text editor without distractions
+Comment[cs]=Jednoduchý a rychlý textový editor pro UTF-8, nic neruší
+Exec=zen-notepad %f
+Icon=io.github.jirimilicka.ZenNotepad
+Terminal=false
+Categories=Utility;TextEditor;
+Keywords=text;editor;notepad;plain;utf-8;
+Keywords[cs]=text;editor;poznámkový blok;notepad;
+MimeType=text/plain;
+StartupNotify=false

@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.jirimilicka.ZenNotepad</id>
+  <name>Zen Notepad</name>
+  <summary>Plain text editor that stays out of your way</summary>
+  <summary xml:lang="cs">Textový editor, který vás neruší</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <developer id="io.github.jirimilicka">
+    <name>Jiří Milička</name>
+  </developer>
+  <description>
+    <p>
+      Zen Notepad is a plain text editor in the spirit of the classic Windows Notepad:
+      a blank white window, no toolbars, no tabs, one window per document.
+      It starts instantly and never second-guesses what you type.
+    </p>
+    <p xml:lang="cs">
+      Zen Notepad je textový editor v duchu klasického Poznámkového bloku z Windows:
+      prázdné bílé okno, žádné panely ani karty, jedno okno pro jeden dokument.
+      Startuje okamžitě a nikdy neopravuje, co píšete.
+    </p>
+    <ul>
+      <li>Starts in a few hundredths of a second</li>
+      <li xml:lang="cs">Spustí se za pár setin sekundy</li>
+      <li>UTF-8 only, done properly: any script, combining marks, emoji, input methods</li>
+      <li xml:lang="cs">Pouze UTF-8, ale dokonale: libovolná písma, diakritika, emoji, vstupní metody</li>
+      <li>Right-to-left documents: when RTL letters dominate, the whole document flips automatically</li>
+      <li xml:lang="cs">Dokumenty psané zprava doleva: když převažují znaky RTL, celý dokument se automaticky přepne</li>
+      <li>No auto-closing brackets, no autocorrect, no spell-check underlines, no syntax highlighting</li>
+      <li xml:lang="cs">Žádné doplňování závorek, automatické opravy, podtrhávání ani zvýrazňování syntaxe</li>
+      <li>Opens files of hundreds of gigabytes instantly and edits them in real time</li>
+      <li xml:lang="cs">Okamžitě otevře soubory o stovkách gigabajtů a pracuje s nimi v reálném čase</li>
+      <li>Fast find and replace, optionally with regular expressions (PCRE2)</li>
+      <li xml:lang="cs">Rychlé hledání a nahrazování, volitelně s regulárními výrazy (PCRE2)</li>
+      <li>Ctrl+wheel zoom, Alt+Z word wrap, Alt+C inverted colors</li>
+      <li xml:lang="cs">Zoom Ctrl+kolečko, zalamování Alt+Z, inverzní barvy Alt+C</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">io.github.jirimilicka.ZenNotepad.desktop</launchable>
+  <provides>
+    <binary>zen-notepad</binary>
+  </provides>
+  <url type="homepage">https://github.com/jirimilicka/zen-notepad</url>
+  <url type="bugtracker">https://github.com/jirimilicka/zen-notepad/issues</url>
+  <url type="vcs-browser">https://github.com/jirimilicka/zen-notepad</url>
+  <screenshots>
+    <screenshot type="default">
+      <caption>A document in several scripts</caption>
+      <image>https://raw.githubusercontent.com/jirimilicka/zen-notepad/v1.0.0/screenshots/main.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Find and replace, inverted colors</caption>
+      <image>https://raw.githubusercontent.com/jirimilicka/zen-notepad/v1.0.0/screenshots/find-dark.png</image>
+    </screenshot>
+  </screenshots>
+  <categories>
+    <category>Utility</category>
+    <category>TextEditor</category>
+  </categories>
+  <keywords>
+    <keyword>text</keyword>
+    <keyword>editor</keyword>
+    <keyword>notepad</keyword>
+  </keywords>
+  <content_rating type="oars-1.1"/>
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+  </supports>
+  <branding>
+    <color type="primary" scheme_preference="light">#ecebe5</color>
+    <color type="primary" scheme_preference="dark">#262626</color>
+  </branding>
+  <releases>
+    <release version="1.0.0" date="2026-10-03">
+      <description>
+        <p>First release.</p>
+      </description>
+    </release>
+  </releases>
+</component>
