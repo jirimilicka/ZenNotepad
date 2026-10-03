@@ -13,7 +13,7 @@ one window per document. It starts instantly and never second-guesses what you t
 GNOME Software installs it with one click. From a terminal:
 
 ```sh
-flatpak install --user ZenNotepad-1.0.3.flatpak
+flatpak install --user ZenNotepad-1.0.4.flatpak
 ```
 
 The KDE runtime it needs is downloaded from Flathub automatically. The app has full file system access
