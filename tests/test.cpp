@@ -86,6 +86,32 @@ int main(int argc, char **argv)
         CHECK(all(e) == "> worl hello\n> žluťoučý příliš");
     }
 
+    // find first / last, replace first / last
+    {
+        QString p = dir.filePath("ff.txt");
+        { QFile f(p); if (!f.open(QIODevice::WriteOnly)) return 2; f.write("cat dog cat dog cat"); }
+        QString err;
+        CHECK(e.openFile(p, err));
+        Searcher s(e.document());
+        std::string er;
+        CHECK(s.setPattern("cat", true, false, er));
+        QTest::keyClick(&e, Qt::Key_Right);  // cursor after the first match start
+        for (int i = 0; i < 9; ++i) QTest::keyClick(&e, Qt::Key_Right);
+        CHECK(e.findFirst(s, false));
+        CHECK(e.selectedText(100) == "cat" && e.cursorPosition() == 3);
+        CHECK(e.findFirst(s, true));
+        CHECK(e.cursorPosition() == 19);
+        CHECK(e.replaceFirst(s, "CAT", false));
+        CHECK(all(e) == "CAT dog cat dog cat");
+        CHECK(e.cursorPosition() == 11);  // next match selected
+        CHECK(e.replaceFirst(s, "X", true));
+        CHECK(all(e) == "CAT dog cat dog X");
+        CHECK(e.cursorPosition() == 11);  // previous match selected
+        CHECK(e.replaceFirst(s, "c", false));
+        CHECK(all(e) == "CAT dog c dog X");
+        CHECK(!e.replaceFirst(s, "c", false));
+    }
+
     // CRLF file, save, reopen
     QString p = dir.filePath("crlf.txt");
     { QFile f(p); f.open(QIODevice::WriteOnly); f.write("ab\r\ncd\r\n"); }

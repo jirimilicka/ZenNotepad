@@ -45,7 +45,9 @@ The KDE runtime it needs is downloaded from Flathub automatically. The app has f
 | Ctrl+O, drag & drop | Open (in the same window) |
 | Ctrl+N | New window |
 | Ctrl+F / Ctrl+H | Find / Find and replace (Esc closes) |
-| Enter / Shift+Enter, F3 / Shift+F3 | Next / previous match |
+| Enter / Shift+Enter (in the find field) | First match from the beginning / last match from the end |
+| F3 / Shift+F3 | Next / previous match |
+| Enter / Shift+Enter (in the replace field) | Replace the first match from the beginning / the last from the end |
 | Ctrl+Alt+Enter | Replace all |
 | Ctrl+wheel, Ctrl+plus / minus, Ctrl+0 | Zoom, reset zoom |
 | Alt+Z | Toggle word wrap |

@@ -1189,12 +1189,46 @@ bool Editor::find(Searcher &s, bool backward, bool &wrapped)
         QGuiApplication::restoreOverrideCursor();
     if (!ok)
         return false;
+    selectMatch(ms, me);
+    return true;
+}
+
+void Editor::selectMatch(uint64_t ms, uint64_t me)
+{
     anchor_ = ms;
     cursor_ = me;
     breakMerge_ = true;
     prefX_ = -1;
     restartBlink();
     ensureCursorVisible();
+}
+
+bool Editor::findFirst(Searcher &s, bool fromEnd)
+{
+    uint64_t ms, me;
+    bool slow = doc_.size() > (64u << 20);
+    if (slow)
+        QGuiApplication::setOverrideCursor(Qt::WaitCursor);
+    bool ok = fromEnd ? s.findBackward(doc_.size() + 1, ms, me) : s.findForward(0, ms, me);
+    if (slow)
+        QGuiApplication::restoreOverrideCursor();
+    if (ok)
+        selectMatch(ms, me);
+    return ok;
+}
+
+bool Editor::replaceFirst(Searcher &s, const std::string &repl, bool fromEnd)
+{
+    if (!findFirst(s, fromEnd))
+        return false;
+    uint64_t ms = selStart(), me = selEnd();
+    std::string out;
+    if (!s.matchesExactly(ms, me, repl, out))
+        out = repl;
+    replaceRange(ms, me, out, Kind::Other);
+    uint64_t a, b;
+    if (fromEnd ? s.findBackward(ms, a, b) : s.findForward(ms + out.size(), a, b))
+        selectMatch(a, b);
     return true;
 }
 

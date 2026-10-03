@@ -40,6 +40,7 @@ public:
     bool isModified() const { return undo_.size() != cleanIndex_; }
     bool isEmptyUntouched() const { return doc_.size() == 0 && undo_.empty() && redo_.empty(); }
     uint64_t documentSize() const { return doc_.size(); }
+    uint64_t cursorPosition() const { return cursor_; }
     const Document &document() const { return doc_; }
 
     QString selectedText(uint64_t limit) const;
@@ -56,6 +57,11 @@ public:
     // Search. Return false when nothing was found. wrapped is set if the search wrapped.
     bool find(Searcher &s, bool backward, bool &wrapped);
     bool replaceOne(Searcher &s, const std::string &repl, bool &wrapped);
+    // First match from the start of the document (or the last one from the end).
+    bool findFirst(Searcher &s, bool fromEnd);
+    // Replaces the first match from the start (or the last from the end), then selects the
+    // following (preceding) match, if any.
+    bool replaceFirst(Searcher &s, const std::string &repl, bool fromEnd);
     uint64_t replaceAll(Searcher &s, const std::string &repl);
 
 signals:
@@ -130,6 +136,7 @@ private:
 
     // cursor movement
     void setCursor(uint64_t pos, bool keepAnchor);
+    void selectMatch(uint64_t ms, uint64_t me);
     uint64_t normalize(uint64_t pos) const;
     uint64_t moveVisual(uint64_t pos, bool right);
     uint64_t moveWord(uint64_t pos, bool forward);

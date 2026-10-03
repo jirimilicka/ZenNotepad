@@ -22,5 +22,5 @@ modules:
     sources:
       - type: git
         url: https://github.com/jirimilicka/ZenNotepad.git
-        tag: v1.0.2
+        tag: v1.0.3
         # commit: filled in for the Flathub submission

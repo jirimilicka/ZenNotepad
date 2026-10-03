@@ -206,15 +206,19 @@ private:
         find_->setClearButtonEnabled(true);
         case_ = toolButton(QStringLiteral("Aa"), QString(), true);
         regex_ = toolButton(QStringLiteral(".*"), QString(), true);
-        auto *prev = prev_ = toolButton(QStringLiteral("↑"), QString());
+        auto *first = first_ = toolButton(QStringLiteral("↧"), QString());
         auto *next = next_ = toolButton(QStringLiteral("↓"), QString());
+        auto *prev = prev_ = toolButton(QStringLiteral("↑"), QString());
+        auto *last = last_ = toolButton(QStringLiteral("↥"), QString());
         status_ = new QLabel(bar_);
         auto *close = close_ = toolButton(QStringLiteral("✕"), QString());
         r1->addWidget(find_, 1);
         r1->addWidget(case_);
         r1->addWidget(regex_);
-        r1->addWidget(prev);
+        r1->addWidget(first);
         r1->addWidget(next);
+        r1->addWidget(prev);
+        r1->addWidget(last);
         r1->addWidget(status_);
         r1->addWidget(close);
 
@@ -228,8 +232,10 @@ private:
         replWidgets_ = {repl_, one, all};
 
         connect(find_, &QLineEdit::returnPressed, this, [this] {
-            findNext(QGuiApplication::keyboardModifiers() & Qt::ShiftModifier);
+            findFirst(QGuiApplication::keyboardModifiers() & Qt::ShiftModifier);
         });
+        connect(first, &QToolButton::clicked, this, [this] { findFirst(false); });
+        connect(last, &QToolButton::clicked, this, [this] { findFirst(true); });
         connect(find_, &QLineEdit::textChanged, this, [this] { setStatus(QString(), false); });
         connect(prev, &QToolButton::clicked, this, [this] { findNext(true); });
         connect(next, &QToolButton::clicked, this, [this] { findNext(false); });
@@ -239,7 +245,7 @@ private:
             if ((m & Qt::ControlModifier) && (m & Qt::AltModifier))
                 replaceAll();
             else
-                replaceOne();
+                replaceFirst(m & Qt::ShiftModifier);
         });
         connect(one, &QToolButton::clicked, this, &MainWindow::replaceOne);
         connect(all, &QToolButton::clicked, this, &MainWindow::replaceAll);
@@ -272,12 +278,17 @@ private:
         find_->setPlaceholderText(tr("Find"));
         case_->setToolTip(tr("Match case"));
         regex_->setToolTip(tr("Regular expression (PCRE2; in replacement $1, ${name}, \\n, \\t)"));
-        prev_->setToolTip(tr("Previous (Shift+Enter, Shift+F3)"));
-        next_->setToolTip(tr("Next (Enter, F3)"));
+        first_->setToolTip(tr("First match from the beginning (Enter)"));
+        next_->setToolTip(tr("Next match (F3)"));
+        prev_->setToolTip(tr("Previous match (Shift+F3)"));
+        last_->setToolTip(tr("Last match from the end (Shift+Enter)"));
+        repl_->setToolTip(tr("Enter: replace the first match from the beginning\n"
+                             "Shift+Enter: replace the last match from the end\n"
+                             "Ctrl+Alt+Enter: replace all"));
         close_->setToolTip(tr("Close (Esc)"));
         repl_->setPlaceholderText(tr("Replace with"));
         one_->setText(tr("Replace"));
-        one_->setToolTip(tr("Replace and find next (Enter in the replace field)"));
+        one_->setToolTip(tr("Replace the selected match and go to the next one"));
         all_->setText(tr("Replace All"));
         all_->setToolTip(tr("Replace all (Ctrl+Alt+Enter)"));
         setStatus(QString(), false);
@@ -378,6 +389,28 @@ private:
             setStatus(tr("Not found"), true);
     }
 
+    void findFirst(bool fromEnd)
+    {
+        Searcher s(editor_->document());
+        if (!prepare(s))
+            return;
+        if (editor_->findFirst(s, fromEnd))
+            setStatus(QString(), false);
+        else
+            setStatus(tr("Not found"), true);
+    }
+
+    void replaceFirst(bool fromEnd)
+    {
+        Searcher s(editor_->document());
+        if (!prepare(s))
+            return;
+        if (editor_->replaceFirst(s, repl_->text().toUtf8().toStdString(), fromEnd))
+            setStatus(QString(), false);
+        else
+            setStatus(tr("Not found"), true);
+    }
+
     void replaceOne()
     {
         Searcher s(editor_->document());
@@ -407,7 +440,7 @@ private:
     QLineEdit *find_, *repl_;
     QToolButton *case_, *regex_;
     QLabel *status_;
-    QToolButton *prev_, *next_, *close_, *one_, *all_;
+    QToolButton *first_, *next_, *prev_, *last_, *close_, *one_, *all_;
     bool badStatus_ = false;
     QList<QWidget *> replWidgets_;
     QString path_;
