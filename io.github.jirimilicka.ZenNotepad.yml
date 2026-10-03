@@ -1,6 +1,6 @@
 # Flatpak manifest (also the one to submit to Flathub).
-# Local test build:  flatpak run org.flatpak.Builder --user --install --force-clean build-flatpak io.github.jirimilicka.zen_notepad.yml
-id: io.github.jirimilicka.zen_notepad
+# Local test build:  flatpak run org.flatpak.Builder --user --install --force-clean build-flatpak io.github.jirimilicka.ZenNotepad.yml
+id: io.github.jirimilicka.ZenNotepad
 runtime: org.kde.Platform
 runtime-version: '6.11'
 sdk: org.kde.Sdk
@@ -21,6 +21,6 @@ modules:
       - -DBUILD_TESTING=OFF
     sources:
       - type: git
-        url: https://github.com/jirimilicka/zen-notepad.git
-        tag: v1.0.1
+        url: https://github.com/jirimilicka/ZenNotepad.git
+        tag: v1.0.2
         # commit: filled in for the Flathub submission
