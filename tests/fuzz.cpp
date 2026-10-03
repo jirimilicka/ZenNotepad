@@ -21,8 +21,10 @@ struct EditorTest {
             MainWindow w;
             w.resize(860, 520);
             w.openPath(file);
-            w.editor_->setZoom(120);
-            w.scaleBar(120);
+            int z = qEnvironmentVariableIntValue("SHOT_ZOOM");
+            if (!z) z = 120;
+            w.editor_->setZoom(z);
+            w.scaleBar(z);
             w.setInverted(true);
             w.show();
             w.find_->setText(QStringLiteral("kůň"));

@@ -10,7 +10,10 @@
 #include <QFileInfo>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QAbstractButton>
 #include <QLineEdit>
+#include <QPainter>
+#include <QPainterPath>
 #include <QMenu>
 #include <QMessageBox>
 #include <QProcess>
@@ -19,6 +22,69 @@
 #include <QShortcut>
 #include <QToolButton>
 #include <QVBoxLayout>
+
+// Clear button inside a line edit. Qt's built-in one only comes in two fixed icon sizes, so
+// this one is drawn as a vector shape and scales with the font (Ctrl+wheel zoom).
+class LineClearButton : public QAbstractButton {
+public:
+    explicit LineClearButton(QLineEdit *le) : QAbstractButton(le), le_(le)
+    {
+        setCursor(Qt::ArrowCursor);
+        setFocusPolicy(Qt::NoFocus);
+        setVisible(false);
+        QObject::connect(this, &QAbstractButton::clicked, le, [le] {
+            le->clear();
+            le->setFocus();
+        });
+        QObject::connect(le, &QLineEdit::textChanged, this, [this](const QString &t) { setVisible(!t.isEmpty()); });
+        le->installEventFilter(this);
+        relayout();
+    }
+
+protected:
+    bool eventFilter(QObject *, QEvent *e) override
+    {
+        if (e->type() == QEvent::Resize || e->type() == QEvent::FontChange)
+            relayout();
+        return false;
+    }
+
+    void paintEvent(QPaintEvent *) override
+    {
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        QColor c = palette().color(QPalette::Text);
+        c.setAlphaF(underMouse() ? 0.85 : 0.5);
+        // backspace key shape with an x inside
+        const qreal w = width(), h = height(), m = h * 0.2;
+        const qreal top = m, bot = h - m, left = w * 0.08, tip = left + (bot - top) * 0.5, right = w - m * 0.5;
+        QPainterPath path;
+        path.moveTo(left, h / 2);
+        path.lineTo(tip, top);
+        path.lineTo(right, top);
+        path.lineTo(right, bot);
+        path.lineTo(tip, bot);
+        path.closeSubpath();
+        p.fillPath(path, c);
+        QPen pen(palette().color(QPalette::Base), qMax<qreal>(1.2, h * 0.09), Qt::SolidLine, Qt::RoundCap);
+        p.setPen(pen);
+        const qreal cx = (tip + right) / 2 - h * 0.02, cy = h / 2, r = (bot - top) * 0.22;
+        p.drawLine(QPointF(cx - r, cy - r), QPointF(cx + r, cy + r));
+        p.drawLine(QPointF(cx - r, cy + r), QPointF(cx + r, cy - r));
+    }
+
+private:
+    void relayout()
+    {
+        const int h = QFontMetrics(le_->font()).height();
+        const int bw = int(h * 1.25), bh = h;
+        resize(bw, bh);
+        move(le_->width() - bw - 4, (le_->height() - bh) / 2);
+        le_->setTextMargins(0, 0, bw + 2, 0);
+    }
+
+    QLineEdit *le_;
+};
 
 class MainWindow : public QWidget {
     friend struct EditorTest;
@@ -203,7 +269,7 @@ private:
         v->addLayout(r2);
 
         find_ = new QLineEdit(bar_);
-        find_->setClearButtonEnabled(true);
+        new LineClearButton(find_);
         case_ = toolButton(QStringLiteral("Aa"), QString(), true);
         regex_ = toolButton(QStringLiteral(".*"), QString(), true);
         auto *first = first_ = toolButton(QStringLiteral("↧"), QString());
@@ -226,6 +292,7 @@ private:
         auto *one = one_ = toolButton(QString(), QString());
         auto *all = all_ = toolButton(QString(), QString());
         r2->setContentsMargins(0, 0, 0, 0);
+        new LineClearButton(repl_);
         r2->addWidget(repl_, 1);
         r2->addWidget(one);
         r2->addWidget(all);
