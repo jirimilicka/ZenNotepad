@@ -182,6 +182,7 @@ private:
     bool inverted_ = false;
     int dirMode_ = 0;
     int xOff_ = 0;  // horizontal scroll in no-wrap mode
+    int hRange_ = 0;  // horizontal scroll range; only grows while scrolling (see updateHScroll)
     bool rtl_ = false;
     bool trackDir_ = true;
     int64_t strongL_ = 0, strongR_ = 0;

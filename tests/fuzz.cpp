@@ -256,6 +256,34 @@ int main(int argc, char **argv)
             CHECK(r.x() >= 0 && r.x() <= e.viewport()->width());
             e.grab().save(dir.filePath(QString("nw%1.png").arg(int(line[0] != 'a'))));
         }
+        // vertical scrollbar must not jump: viewport height stays stable while scrolling
+        {
+            QString p = dir.filePath("mixed.txt");
+            QFile f(p);
+            if (!f.open(QIODevice::WriteOnly)) return 2;
+            for (int i = 0; i < 2000; ++i) {
+                if (i % 97 == 50) for (int k = 0; k < 60; ++k) f.write("long line text ");
+                else f.write("short");
+                f.write("\n");
+            }
+            f.close();
+            QString err;
+            CHECK(e.openFile(p, err));
+            int heightChanges = 0, h = e.viewport()->height(), backwards = 0, prev = 0;
+            for (int i = 0; i < 300; ++i) {
+                QWheelEvent we(QPointF(50, 50), e.mapToGlobal(QPointF(50, 50)), QPoint(), QPoint(0, -120),
+                               Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+                QApplication::sendEvent(e.viewport(), &we);
+                QApplication::processEvents();
+                if (e.viewport()->height() != h) { ++heightChanges; h = e.viewport()->height(); }
+                int v = e.verticalScrollBar()->value();
+                if (v < prev) ++backwards;
+                prev = v;
+            }
+            fprintf(stderr, "nowrap scroll: viewport height changes=%d, scrollbar moved backwards=%d\n", heightChanges, backwards);
+            CHECK(heightChanges <= 1);
+            CHECK(backwards == 0);
+        }
         e.setInverted(true);
         e.setWordWrap(true);
         e.grab().save(dir.filePath("inv.png"));

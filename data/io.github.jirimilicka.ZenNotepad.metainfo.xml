@@ -73,6 +73,11 @@
     <color type="primary" scheme_preference="dark">#262626</color>
   </branding>
   <releases>
+    <release version="1.0.3" date="2026-10-04">
+      <description>
+        <p>Fix: with word wrap off, the vertical scrollbar no longer jumps while scrolling.</p>
+      </description>
+    </release>
     <release version="1.0.2" date="2026-10-03">
       <description>
         <p>Repository renamed to ZenNotepad to match the app ID.</p>

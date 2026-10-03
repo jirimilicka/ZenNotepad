@@ -141,6 +141,7 @@ void Editor::resetState()
     cleanIndex_ = 0;
     cursor_ = anchor_ = 0;
     top_ = Anchor{};
+    xOff_ = hRange_ = 0;
     prefX_ = -1;
     preedit_.clear();
     breakMerge_ = true;
@@ -263,6 +264,7 @@ void Editor::setZoom(int percent)
     percent = qBound(30, percent, 500);
     bool changed = percent != zoom_;
     zoom_ = percent;
+    hRange_ = 0;
     font_.setPointSizeF(basePointSize_ * zoom_ / 100.0);
     opt_.setTabStopDistance(QFontMetricsF(font_).horizontalAdvance(QLatin1Char(' ')) * 4);
     invalidateLayout();
@@ -273,7 +275,7 @@ void Editor::setZoom(int percent)
 void Editor::setWordWrap(bool on)
 {
     wrap_ = on;
-    xOff_ = 0;
+    xOff_ = hRange_ = 0;
     opt_.setWrapMode(on ? QTextOption::WrapAtWordBoundaryOrAnywhere : QTextOption::NoWrap);
     setHorizontalScrollBarPolicy(on ? Qt::ScrollBarAlwaysOff : Qt::ScrollBarAsNeeded);
     invalidateLayout();
@@ -638,7 +640,9 @@ void Editor::updateHScroll()
         xOff_ = 0;
         return;
     }
-    // Range from the widest line currently visible (the whole file may be huge).
+    // Range from the widest line seen so far (the whole file may be huge). It never shrinks while
+    // scrolling: a scrollbar that appears and disappears would resize the viewport each time and make
+    // the vertical scrollbar jump. It is reset when the file, zoom or wrap mode changes.
     qreal textW = viewport()->width() - 2 * kMargin, over = 0, y = 0, vh = viewport()->height();
     Anchor a = top_;
     while (y < vh) {
@@ -651,7 +655,8 @@ void Editor::updateHScroll()
     }
     updatingSb_ = true;
     hb->setInvertedAppearance(rtl_);
-    hb->setRange(0, qMax(int(std::ceil(over)), xOff_));
+    hRange_ = qMax(hRange_, qMax(int(std::ceil(over)), xOff_));
+    hb->setRange(0, hRange_);
     hb->setPageStep(int(textW));
     hb->setSingleStep(qMax(8, int(QFontMetricsF(font_).averageCharWidth() * 3)));
     hb->setValue(xOff_);
